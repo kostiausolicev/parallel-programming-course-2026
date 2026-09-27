@@ -1,13 +1,14 @@
 package org.example;
 
 import org.example.collectors.CollectorUtils;
-import org.example.collectors.impl.EmptyLockCollector;
-import org.example.collectors.impl.SharedLockCollector;
-import org.example.collectors.impl.SingleLockCollector;
-import org.example.collectors.impl.SingleThreadCollector;
+import org.example.collectors.MetricsCollector;
+import org.example.collectors.impl.*;
 
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class App {
 
@@ -37,6 +38,18 @@ public class App {
             }
             case "sharedLock": {
                 runSharedLockCollector(metricsOutputDir);
+                break;
+            }
+            case "threadLocalSharedLock": {
+                runThreadLocalSharedLockCollector(metricsOutputDir);
+                break;
+            }
+            case "inconsistencyShared": {
+                runInconsistencyTest(new SharedLockCollector());
+                break;
+            }
+            case "inconsistencyThreadLocalShared": {
+                runInconsistencyTest(new ThreadLocalSharedLockCollector());
                 break;
             }
             case "2buff": {
@@ -117,5 +130,72 @@ public class App {
                 System.out.println("=====");
             }
         }
+    }
+
+    private static void runThreadLocalSharedLockCollector(Path metricsOutputDir) {
+        try (var csv = new MetricsCsvWriter(metricsOutputDir, "thread_local_shared_lock")) {
+            var q = SeqUtils.generateSequence();
+            for (int threads : threadsCount) {
+                var singleThread = new ThreadLocalSharedLockCollector();
+                var opSec = CollectorUtils.measurePoint(threads, q, singleThread);
+                var snapshot = singleThread.snapshot();
+                csv.writeThroughput(threads, opSec);
+                System.out.printf("thread local shared lock (%d threads): %f op/sec\n", threads, opSec);
+                System.out.printf("\tsum: %d\n\tcount: %d\n\tmin: %d\n\tmax: %d\n",
+                        snapshot.sum(),
+                        snapshot.count(),
+                        snapshot.min(),
+                        snapshot.max()
+                );
+                System.out.println("=====");
+            }
+        }
+    }
+
+    private static void runInconsistencyTest(MetricsCollector collector) {
+        final int threadsCount = 4;
+        CountDownLatch activeThread = new CountDownLatch(threadsCount);
+        AtomicBoolean stop = new AtomicBoolean(false);
+        long[] counts = new long[threadsCount];
+        for (int i = 0; i < threadsCount; i++) {
+            final int threadId = i;
+            new Thread(() -> {
+                int localCount = 0;
+                while (!stop.get()) {
+                    collector.record(0);
+                    localCount++;
+                }
+                counts[threadId] = localCount;
+                activeThread.countDown();
+            }).start();
+        }
+
+        long sumLess = 0;
+        long sumGreate = 0;
+
+        for (int i = 0; i < 10_000; i++) {
+            Snapshot s = collector.snapshot();
+            long count1 = Arrays.stream(s.buckets()).sum();
+            long count2 = s.count();
+            if (count1 < count2) {
+                sumLess++;
+            } else if (count1 > count2) {
+                sumGreate++;
+            }
+        }
+        stop.set(true);
+        try {
+            activeThread.await();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        long localRecordCall = Arrays.stream(counts).sum();
+        System.out.printf("expected count of method \"record\" calls: %d\n", localRecordCall);
+        System.out.printf("fact count of method \"record\" calls: %d\n", collector.snapshot().count());
+        System.out.println("===");
+        System.out.printf("count of less snapshots: %d\n", sumLess);
+        System.out.printf("count of greate snapshots: %d\n", sumGreate);
+        System.out.printf("total count of broken snapshots: %d\n", sumGreate + sumLess);
+        System.out.printf("total count of snapshots: %d\n", 10_000);
     }
 }

@@ -32,35 +32,45 @@ tasks.named<Test>("test") {
     useJUnitPlatform()
 }
 
-tasks.register("runSingleThread", JavaExec::class) {
-    group = "application"
-    mainClass.set(application.mainClass)
-    classpath = sourceSets.main.get().runtimeClasspath
-    args("singleThread", metricsOutputDir())
+fun registerAppRunTask(taskName: String, collectorArg: String) {
+    tasks.register(taskName, JavaExec::class) {
+        group = "application"
+        mainClass.set(application.mainClass)
+        classpath = sourceSets.main.get().runtimeClasspath
+        args(collectorArg, metricsOutputDir())
+    }
 }
 
-tasks.register("runSingleLock", JavaExec::class) {
+registerAppRunTask("runSingleThread", "singleThread")
+registerAppRunTask("runSingleLock", "singleLock")
+registerAppRunTask("runEmptySingleLock", "emptySingleLock")
+registerAppRunTask("runSharedLock", "sharedLock")
+registerAppRunTask("runThreadLocalSharedLock", "threadLocalSharedLock")
+
+registerAppRunTask("runInconsistencyShared", "inconsistencyShared")
+registerAppRunTask("runInconsistencyThreadLocalShared", "inconsistencyThreadLocalShared")
+
+tasks.register("runAllCollectors") {
     group = "application"
-    mainClass.set(application.mainClass)
-    classpath = sourceSets.main.get().runtimeClasspath
-    args("singleLock", metricsOutputDir())
+    dependsOn(
+        "runSingleThread",
+        "runSingleLock",
+        "runEmptySingleLock",
+        "runSharedLock",
+        "runThreadLocalSharedLock"
+    )
 }
 
-tasks.register("runEmptySingleLock", JavaExec::class) {
-    group = "application"
-    mainClass.set(application.mainClass)
-    classpath = sourceSets.main.get().runtimeClasspath
-    args("emptySingleLock", metricsOutputDir())
-}
-
-tasks.register("runSharedLock", JavaExec::class) {
-    group = "application"
-    mainClass.set(application.mainClass)
-    classpath = sourceSets.main.get().runtimeClasspath
-    args("sharedLock", metricsOutputDir())
+tasks.register("runCollectorTests") {
+    group = "verification"
+    dependsOn(
+        "test",
+        "runInconsistencyShared",
+        "runInconsistencyThreadLocalShared"
+    )
 }
 
 tasks.register("runAllMetrics") {
     group = "application"
-    dependsOn("runSingleThread", "runSingleLock", "runEmptySingleLock", "runSharedLock")
+    dependsOn("runAllCollectors")
 }

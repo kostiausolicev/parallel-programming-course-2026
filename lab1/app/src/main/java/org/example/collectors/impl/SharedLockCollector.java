@@ -70,4 +70,3 @@ public class SharedLockCollector implements MetricsCollector {
         return bucketsSnapshot;
     }
 }
-
