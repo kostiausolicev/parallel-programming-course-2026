@@ -4,9 +4,7 @@ import org.example.Snapshot;
 import org.example.collectors.CollectorUtils;
 import org.example.collectors.MetricsCollector;
 
-import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.locks.ReentrantLock;
 
 import static java.lang.Math.min;
 
@@ -18,6 +16,10 @@ public class SharedLockCollector implements MetricsCollector {
     private final AtomicLong max = new AtomicLong(Long.MIN_VALUE);
 
     private final Object[] locks = new Object[16];
+
+    {
+        java.util.Arrays.fill(locks, new Object());
+    }
 
     @Override
     public void record(long value) {

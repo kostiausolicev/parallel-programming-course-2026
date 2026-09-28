@@ -191,7 +191,7 @@ public class App {
             new Thread(() -> {
                 int localCount = 0;
                 while (!stop.get()) {
-                    collector.record(random.nextInt() % q.length);
+                    collector.record(q[random.nextInt() % q.length]);
                     localCount++;
                 }
                 counts[threadId] = localCount;
