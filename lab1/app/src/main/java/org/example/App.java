@@ -8,6 +8,7 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -55,10 +56,6 @@ public class App {
             }
             case "inconsistencyTwoBuffers": {
                 runInconsistencyTest("two_buffers", new TwoBuffersMetricsCollector(), metricsOutputDir);
-                break;
-            }
-            case "2buff": {
-                runTwoBuffersCollector(metricsOutputDir);
                 break;
             }
             case "twoBuffers": {
@@ -187,12 +184,14 @@ public class App {
         CountDownLatch activeThread = new CountDownLatch(threadsCount);
         AtomicBoolean stop = new AtomicBoolean(false);
         long[] counts = new long[threadsCount];
+        long[] q = SeqUtils.generateSequence();
+        Random random = new Random();
         for (int i = 0; i < threadsCount; i++) {
             final int threadId = i;
             new Thread(() -> {
                 int localCount = 0;
                 while (!stop.get()) {
-                    collector.record(0);
+                    collector.record(random.nextInt() % q.length);
                     localCount++;
                 }
                 counts[threadId] = localCount;

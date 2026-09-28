@@ -4,6 +4,7 @@ import org.example.Snapshot;
 import org.example.collectors.CollectorUtils;
 import org.example.collectors.MetricsCollector;
 
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -16,22 +17,16 @@ public class SharedLockCollector implements MetricsCollector {
     private final AtomicLong min = new AtomicLong(Long.MAX_VALUE);
     private final AtomicLong max = new AtomicLong(Long.MIN_VALUE);
 
-    private final ReentrantLock[] locks = new ReentrantLock[16];
-
-    {
-        for (int i = 0; i < 16; i++) {
-            locks[i] = new ReentrantLock();
-        }
-    }
+    private final Object[] locks = new Object[16];
 
     @Override
     public void record(long value) {
         int bucketI = min((int) value / 4, 255);
         int lockI = bucketI % 16;
-        ReentrantLock lock = locks[lockI];
-        lock.lock();
-        buckets[bucketI]++;
-        lock.unlock();
+        Object lock = locks[lockI];
+        synchronized (lock) {
+            buckets[bucketI]++;
+        }
         sum.addAndGet(value);
         count.addAndGet(1);
         long old;
@@ -60,12 +55,12 @@ public class SharedLockCollector implements MetricsCollector {
     private long[] copyBucketsAtomicity() {
         long[] bucketsSnapshot = new long[buckets.length];
         for (int l = 0; l < locks.length; l++) {
-            ReentrantLock lock = locks[l];
-            lock.lock();
-            for (int b = l; b < buckets.length; b += locks.length) {
-                bucketsSnapshot[b] = buckets[b];
+            Object lock = locks[l];
+            synchronized (lock) {
+                for (int b = l; b < buckets.length; b += locks.length) {
+                    bucketsSnapshot[b] = buckets[b];
+                }
             }
-            lock.unlock();
         }
         return bucketsSnapshot;
     }
