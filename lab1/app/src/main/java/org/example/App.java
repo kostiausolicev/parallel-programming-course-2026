@@ -193,7 +193,7 @@ public class App {
                 int localCount = 0;
                 while (!stop.get()) {
                     collector.record(q[indexes[threadId]]);
-                    indexes[threadId] = (indexes[threadId] + 100) % q.length;
+                    indexes[threadId] = (indexes[threadId] + 10000) % q.length;
                     localCount++;
                 }
                 counts[threadId] = localCount;
