@@ -7,6 +7,7 @@ import org.example.collectors.impl.*;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -17,7 +18,7 @@ public class App {
 
     public static void main(String[] args) {
         if (args.length == 0) {
-            throw new IllegalArgumentException("Usage: App <singleThread|singleLock|emptySingleLock|sharedLock|2buff> [metricsOutputDir]");
+            throw new IllegalArgumentException("Usage: App <singleThread|singleLock|emptySingleLock|sharedLock|threadLocalSharedLock|twoBuffers|2buff|inconsistencyShared|inconsistencyThreadLocalShared|inconsistencyTwoBuffers> [metricsOutputDir]");
         }
 
         var collectorType = args[0];
@@ -45,15 +46,23 @@ public class App {
                 break;
             }
             case "inconsistencyShared": {
-                runInconsistencyTest(new SharedLockCollector());
+                runInconsistencyTest("shared_lock", new SharedLockCollector(), metricsOutputDir);
                 break;
             }
             case "inconsistencyThreadLocalShared": {
-                runInconsistencyTest(new ThreadLocalSharedLockCollector());
+                runInconsistencyTest("thread_local_shared_lock", new ThreadLocalSharedLockCollector(), metricsOutputDir);
+                break;
+            }
+            case "inconsistencyTwoBuffers": {
+                runInconsistencyTest("two_buffers", new TwoBuffersMetricsCollector(), metricsOutputDir);
                 break;
             }
             case "2buff": {
-                runSingleLockCollector(metricsOutputDir); // todo
+                runTwoBuffersCollector(metricsOutputDir);
+                break;
+            }
+            case "twoBuffers": {
+                runTwoBuffersCollector(metricsOutputDir);
                 break;
             }
             default:
@@ -152,8 +161,29 @@ public class App {
         }
     }
 
-    private static void runInconsistencyTest(MetricsCollector collector) {
+    private static void runTwoBuffersCollector(Path metricsOutputDir) {
+        try (var csv = new MetricsCsvWriter(metricsOutputDir, "two_buffers")) {
+            var q = SeqUtils.generateSequence();
+            for (int threads : threadsCount) {
+                var collector = new TwoBuffersMetricsCollector();
+                var opSec = CollectorUtils.measurePoint(threads, q, collector);
+                var snapshot = collector.snapshot();
+                csv.writeThroughput(threads, opSec);
+                System.out.printf("two buffers (%d threads): %f op/sec\n", threads, opSec);
+                System.out.printf("\tsum: %d\n\tcount: %d\n\tmin: %d\n\tmax: %d\n",
+                        snapshot.sum(),
+                        snapshot.count(),
+                        snapshot.min(),
+                        snapshot.max()
+                );
+                System.out.println("=====");
+            }
+        }
+    }
+
+    private static void runInconsistencyTest(String collectorName, MetricsCollector collector, Path metricsOutputDir) {
         final int threadsCount = 4;
+        final int snapshotsCount = 10_000;
         CountDownLatch activeThread = new CountDownLatch(threadsCount);
         AtomicBoolean stop = new AtomicBoolean(false);
         long[] counts = new long[threadsCount];
@@ -173,7 +203,7 @@ public class App {
         long sumLess = 0;
         long sumGreate = 0;
 
-        for (int i = 0; i < 10_000; i++) {
+        for (int i = 0; i < snapshotsCount; i++) {
             Snapshot s = collector.snapshot();
             long count1 = Arrays.stream(s.buckets()).sum();
             long count2 = s.count();
@@ -190,12 +220,28 @@ public class App {
             throw new RuntimeException(e);
         }
         long localRecordCall = Arrays.stream(counts).sum();
+        long actualRecordCount = collector.snapshot().count();
+        long brokenSnapshots = sumGreate + sumLess;
+        double brokenPercent = brokenSnapshots * 100.0 / snapshotsCount;
+        MetricsCsvWriter.writeConsistency(
+                metricsOutputDir,
+                collectorName,
+                threadsCount,
+                snapshotsCount,
+                sumLess,
+                sumGreate,
+                localRecordCall,
+                actualRecordCount
+        );
+
         System.out.printf("expected count of method \"record\" calls: %d\n", localRecordCall);
-        System.out.printf("fact count of method \"record\" calls: %d\n", collector.snapshot().count());
+        System.out.printf("fact count of method \"record\" calls: %d\n", actualRecordCount);
         System.out.println("===");
         System.out.printf("count of less snapshots: %d\n", sumLess);
         System.out.printf("count of greate snapshots: %d\n", sumGreate);
-        System.out.printf("total count of broken snapshots: %d\n", sumGreate + sumLess);
-        System.out.printf("total count of snapshots: %d\n", 10_000);
+        System.out.printf("total count of broken snapshots: %d\n", brokenSnapshots);
+        System.out.printf(Locale.US, "broken snapshots percent: %.6f%%%n", brokenPercent);
+        System.out.printf("total count of snapshots: %d\n", snapshotsCount);
+        System.out.printf("metrics file: %s\n", metricsOutputDir.resolve(collectorName + "_consistency.csv"));
     }
 }
