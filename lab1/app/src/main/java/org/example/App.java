@@ -185,13 +185,15 @@ public class App {
         AtomicBoolean stop = new AtomicBoolean(false);
         long[] counts = new long[threadsCount];
         long[] q = SeqUtils.generateSequence();
-        Random random = new Random();
+        int[] indexes = new int[threadsCount];
         for (int i = 0; i < threadsCount; i++) {
             final int threadId = i;
+            indexes[i] = threadId;
             new Thread(() -> {
                 int localCount = 0;
                 while (!stop.get()) {
-                    collector.record(q[random.nextInt() % q.length]);
+                    collector.record(q[indexes[threadId]]);
+                    indexes[threadId] = (indexes[threadId] + 100) % q.length;
                     localCount++;
                 }
                 counts[threadId] = localCount;

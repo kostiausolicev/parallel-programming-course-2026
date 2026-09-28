@@ -18,7 +18,9 @@ public class SharedLockCollector implements MetricsCollector {
     private final Object[] locks = new Object[16];
 
     {
-        java.util.Arrays.fill(locks, new Object());
+        for (int i = 0; i < 16; i++) {
+            locks[i] = new Object();
+        }
     }
 
     @Override
