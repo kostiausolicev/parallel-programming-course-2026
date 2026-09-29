@@ -52,6 +52,7 @@ registerAppRunTask("runInconsistencyShared", "inconsistencyShared")
 registerAppRunTask("runInconsistencyThreadLocalShared", "inconsistencyThreadLocalShared")
 registerAppRunTask("runInconsistencyTwoBuffers", "inconsistencyTwoBuffers")
 registerAppRunTask("runTwoBuffersInconsistencyTest", "inconsistencyTwoBuffers")
+registerAppRunTask("runInconsistencyTwoBuffersNoCheck", "inconsistencyTwoBuffersNoCheck")
 
 val metricTasks = listOf(
     "runSingleThread",
@@ -66,7 +67,8 @@ val consistencyTasks = listOf(
     "runInconsistencyShared",
     "runInconsistencyThreadLocalShared",
     "runInconsistencyTwoBuffers",
-    "runTwoBuffersInconsistencyTest"
+    "runTwoBuffersInconsistencyTest",
+    "runInconsistencyTwoBuffersNoCheck"
 )
 
 

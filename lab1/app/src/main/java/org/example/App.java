@@ -19,7 +19,7 @@ public class App {
 
     public static void main(String[] args) {
         if (args.length == 0) {
-            throw new IllegalArgumentException("Usage: App <singleThread|singleLock|emptySingleLock|sharedLock|threadLocalSharedLock|twoBuffers|2buff|inconsistencyShared|inconsistencyThreadLocalShared|inconsistencyTwoBuffers> [metricsOutputDir]");
+            throw new IllegalArgumentException("Usage: App <singleThread|singleLock|emptySingleLock|sharedLock|threadLocalSharedLock|twoBuffers|2buff|inconsistencyShared|inconsistencyThreadLocalShared|inconsistencyTwoBuffers|inconsistencyTwoBuffersNoCheck> [metricsOutputDir]");
         }
 
         var collectorType = args[0];
@@ -56,6 +56,10 @@ public class App {
             }
             case "inconsistencyTwoBuffers": {
                 runInconsistencyTest("two_buffers", new TwoBuffersMetricsCollector(), metricsOutputDir);
+                break;
+            }
+            case "inconsistencyTwoBuffersNoCheck": {
+                runInconsistencyTest("two_buffers_no_check", new TwoBuffersNoCheckMetricsCollector(), metricsOutputDir);
                 break;
             }
             case "twoBuffers": {

@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="560" viewBox="0 0 960 560">
+  <rect width="960" height="560" fill="white"/>
+  <text x="480" y="30" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="700">Collector throughput, million record() calls/sec</text>
+
+  <line x1="80" y1="430" x2="780" y2="430" stroke="#222" stroke-width="1.5"/>
+  <line x1="80" y1="50" x2="80" y2="430" stroke="#222" stroke-width="1.5"/>
+  <g stroke="#e6e6e6" stroke-width="1">
+    <line x1="80" y1="350" x2="780" y2="350"/>
+    <line x1="80" y1="270" x2="780" y2="270"/>
+    <line x1="80" y1="190" x2="780" y2="190"/>
+    <line x1="80" y1="110" x2="780" y2="110"/>
+  </g>
+
+  <g font-family="Arial, sans-serif" font-size="12" fill="#333">
+    <text x="80" y="452" text-anchor="middle">1</text>
+    <text x="158" y="452" text-anchor="middle">2</text>
+    <text x="313" y="452" text-anchor="middle">4</text>
+    <text x="624" y="452" text-anchor="middle">8</text>
+    <text x="780" y="452" text-anchor="middle">10</text>
+    <text x="430" y="490" text-anchor="middle" font-size="14">Threads</text>
+    <text x="66" y="434" text-anchor="end">0</text>
+    <text x="66" y="354" text-anchor="end">250</text>
+    <text x="66" y="274" text-anchor="end">500</text>
+    <text x="66" y="194" text-anchor="end">750</text>
+    <text x="66" y="114" text-anchor="end">1000</text>
+    <text x="66" y="54" text-anchor="end">1250</text>
+  </g>
+
+  <polyline points="80,380.59 158,419.08 313,417.67 624,424.04 780,424.17" fill="none" stroke="#9467bd" stroke-width="2.5"/>
+  <polyline points="80,383.86 158,422.98 313,419.24 624,421.96 780,422.57" fill="none" stroke="#2ca02c" stroke-width="2.5"/>
+  <polyline points="80,406.63 158,425.40 313,426.50 624,425.10 780,424.60" fill="none" stroke="#d62728" stroke-width="2.5"/>
+  <polyline points="80,365.70 158,302.91 313,187.11 624,68.05 780,38.09" fill="none" stroke="#1f77b4" stroke-width="2.5"/>
+  <polyline points="80,369.12 158,310.73 313,201.40 624,100.74 780,75.21" fill="none" stroke="#8c564b" stroke-width="2.5"/>
+  <circle cx="80" cy="369.25" r="4" fill="#111"/>
+
+  <g fill="white" stroke="none">
+    <circle cx="80" cy="380.59" r="3"/><circle cx="158" cy="419.08" r="3"/><circle cx="313" cy="417.67" r="3"/><circle cx="624" cy="424.04" r="3"/><circle cx="780" cy="424.17" r="3"/>
+    <circle cx="80" cy="383.86" r="3"/><circle cx="158" cy="422.98" r="3"/><circle cx="313" cy="419.24" r="3"/><circle cx="624" cy="421.96" r="3"/><circle cx="780" cy="422.57" r="3"/>
+    <circle cx="80" cy="406.63" r="3"/><circle cx="158" cy="425.40" r="3"/><circle cx="313" cy="426.50" r="3"/><circle cx="624" cy="425.10" r="3"/><circle cx="780" cy="424.60" r="3"/>
+    <circle cx="80" cy="365.70" r="3"/><circle cx="158" cy="302.91" r="3"/><circle cx="313" cy="187.11" r="3"/><circle cx="624" cy="68.05" r="3"/><circle cx="780" cy="38.09" r="3"/>
+    <circle cx="80" cy="369.12" r="3"/><circle cx="158" cy="310.73" r="3"/><circle cx="313" cy="201.40" r="3"/><circle cx="624" cy="100.74" r="3"/><circle cx="780" cy="75.21" r="3"/>
+  </g>
+
+  <g font-family="Arial, sans-serif" font-size="13">
+    <rect x="805" y="70" width="140" height="150" fill="white" stroke="#ddd"/>
+    <circle cx="830" cy="92" r="4" fill="#111"/><text x="852" y="96">Single thread</text>
+    <line x1="815" y1="116" x2="845" y2="116" stroke="#9467bd" stroke-width="2.5"/><text x="852" y="120">Empty lock</text>
+    <line x1="815" y1="140" x2="845" y2="140" stroke="#2ca02c" stroke-width="2.5"/><text x="852" y="144">Single lock</text>
+    <line x1="815" y1="164" x2="845" y2="164" stroke="#d62728" stroke-width="2.5"/><text x="852" y="168">Shared lock</text>
+    <line x1="815" y1="188" x2="845" y2="188" stroke="#1f77b4" stroke-width="2.5"/><text x="852" y="192">Thread-local</text>
+    <line x1="815" y1="212" x2="845" y2="212" stroke="#8c564b" stroke-width="2.5"/><text x="852" y="216">Two buffers</text>
+  </g>
+</svg>
