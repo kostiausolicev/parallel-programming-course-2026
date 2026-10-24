@@ -15,6 +15,7 @@ class Task {
     Semaphore semaphore;
     Thread thread;
     SchedLock waitingLock;
+    BooleanSupplier waitingCond;
 
     static ThreadLocal<Scheduler> CURRENT_SCHEDULER = new ThreadLocal<>();
     static ThreadLocal<Task> CURRENT_TASK = new ThreadLocal<>();
@@ -32,6 +33,11 @@ class Task {
 
     public void setWaiting() {
         this.state = TState.WAITING;
+        _wait();
+    }
+
+    public void setWaitingCond() {
+        this.state = TState.BLOCKED;
         _wait();
     }
 
@@ -144,6 +150,10 @@ public final class Scheduler {
                 .limit(1L).findAny().isPresent()
         ) {
             this.needSwitch = false;
+            tasks.stream()
+                    .filter(t -> t.state == TState.BLOCKED && t.waitingCond != null)
+                    .filter(t -> t.waitingCond.getAsBoolean())
+                    .forEach(t -> { t.state = TState.WAITING; t.waitingCond = null; });
             // собираем enabled
             List<Integer> enabled = tasks.stream()
                     .filter(t -> t.state == TState.WAITING)
@@ -228,6 +238,17 @@ public final class Scheduler {
         }
     }
 
+    public void switchTaskWithCond() {
+        Task currentTask = Task.CURRENT_TASK.get();
+        if (!this.needSwitch) {
+            return;
+        }
+        currentTask.state = TState.BLOCKED;
+        this.schedulerPermits.release(); // <- будим себя
+        // останавливаем задачу
+        currentTask.setWaitingCond(); // <- ставим задачу в ожидание из-за лока
+    }
+
     public void blockCurrentTask() {
         Task currentTask = Task.CURRENT_TASK.get();
         currentTask.state = TState.BLOCKED;
@@ -257,10 +278,16 @@ public final class Scheduler {
 
     /** Ждать, пока cond не станет true. До этого поток не попадает в enabled. */
     public static void await(BooleanSupplier cond) {
-        // todo log
-        while (!cond.getAsBoolean());
         Scheduler scheduler = Task.CURRENT_SCHEDULER.get();
-        scheduler.switchTask(false);
+        Task task = Task.CURRENT_TASK.get();
+        if (cond.getAsBoolean()) {
+            scheduler.switchTask(false);
+            scheduler.needSwitch = true;
+            return;
+        }
+        task.waitingCond = cond;
+        scheduler.switchTaskWithCond();
+        scheduler.needSwitch = true;
     }
 }
 
