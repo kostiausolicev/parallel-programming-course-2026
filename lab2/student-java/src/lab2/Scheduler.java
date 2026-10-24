@@ -240,13 +240,10 @@ public final class Scheduler {
 
     public void switchTaskWithCond() {
         Task currentTask = Task.CURRENT_TASK.get();
-        if (!this.needSwitch) {
-            return;
-        }
         currentTask.state = TState.BLOCKED;
         this.schedulerPermits.release(); // <- будим себя
         // останавливаем задачу
-        currentTask.setWaitingCond(); // <- ставим задачу в ожидание из-за лока
+        currentTask.setWaitingCond(); // <- ставим задачу в ожидание условия
     }
 
     public void blockCurrentTask() {
@@ -280,14 +277,25 @@ public final class Scheduler {
     public static void await(BooleanSupplier cond) {
         Scheduler scheduler = Task.CURRENT_SCHEDULER.get();
         Task task = Task.CURRENT_TASK.get();
-        if (cond.getAsBoolean()) {
-            scheduler.switchTask(false);
-            scheduler.needSwitch = true;
+
+        while (true) {
+            if (!cond.getAsBoolean()) {
+                task.waitingCond = cond;
+                scheduler.switchTaskWithCond();
+                continue;
+            }
+            if (scheduler.needSwitch) {
+                scheduler.switchTask(false);
+                continue;
+            }
+
+            task.waitingCond = null;
+            if (scheduler.logging) {
+                scheduler.log.add(String.format("%s  await done", task.getLiteralId()));
+            }
+            scheduler.operationDone();
             return;
         }
-        task.waitingCond = cond;
-        scheduler.switchTaskWithCond();
-        scheduler.needSwitch = true;
     }
 }
 
