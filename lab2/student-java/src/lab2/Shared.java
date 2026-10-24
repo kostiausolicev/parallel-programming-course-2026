@@ -11,12 +11,24 @@ public final class Shared<T> {
 
     /** Чтение с паузой перед ним. */
     public T get() {
-        throw new UnsupportedOperationException("TODO этап 1: Shared.get");
+        Task currentTask = Task.CURRENT_TASK.get();
+        System.out.printf("%s %s -> %s\n", currentTask.getLiteralId(), name, value.toString());
+
+        Scheduler scheduler = Task.CURRENT_SCHEDULER.get();
+        scheduler.switchTask();
+        // выполняем полезное действие
+        return value;
     }
 
     /** Запись с паузой перед ней. */
     public void set(T v) {
-        throw new UnsupportedOperationException("TODO этап 1: Shared.set");
+        Task currentTask = Task.CURRENT_TASK.get();
+        System.out.printf("%s %s = %s\n", currentTask.getLiteralId(), name, v.toString());
+
+        Scheduler scheduler = Task.CURRENT_SCHEDULER.get();
+        scheduler.switchTask();
+        // выполняем полезное действие
+        value = v;
     }
 
     /** То же, что get(): планировщик не моделирует порядки памяти. */
