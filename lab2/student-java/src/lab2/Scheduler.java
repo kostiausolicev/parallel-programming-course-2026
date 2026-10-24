@@ -1,8 +1,6 @@
 package lab2;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.Semaphore;
 import java.util.function.BooleanSupplier;
 
@@ -33,6 +31,15 @@ class Task {
 
     public void setWaiting() {
         this.state = TState.WAITING;
+        _wait();
+    }
+
+    public void setWaitingLock() {
+        this.state = TState.BLOCKED;
+        _wait();
+    }
+
+    private void _wait() {
         try {
             this.semaphore.acquire();
             this.state = TState.RUNNING;
@@ -72,6 +79,19 @@ public final class Scheduler {
     String deadlock;
 
     public Scheduler() {
+    }
+
+    Map<String, Queue<Task>> waiters = new HashMap<>();
+
+    public void addWaitingTask(String lockName, Task task) {
+        Queue<Task> w = Optional.ofNullable(waiters.get(lockName)).orElse(new LinkedList<>());
+        w.add(task);
+    }
+
+    public void releaseWaitingTask(String lockName) {
+        Optional.ofNullable(waiters.get(lockName))
+                .flatMap(taskQueue -> Optional.ofNullable(taskQueue.poll()))
+                .ifPresent(t -> t.state = TState.WAITING);
     }
 
     int counter = 1;
@@ -114,6 +134,13 @@ public final class Scheduler {
             this.needSwitch = false;
             // собираем enabled
             List<Integer> enabled = tasks.stream().filter(t -> t.state == TState.WAITING).map(Task::getId).toList();
+            if (enabled.isEmpty()) {
+                deadlock = waiters.entrySet().stream()
+                        .flatMap(entry -> entry.getValue()
+                                .stream()
+                                .map(t -> String.format("%s: %s", t.getLiteralId(), entry.getKey()))
+                        ).reduce((s1, s2) -> s1 + ", " + s2).orElse("");
+            }
             int next = strategy.pick(enabled, last);
             last = next;
 
@@ -132,16 +159,24 @@ public final class Scheduler {
         System.out.println(this.traceString());
     }
 
-    public void switchTask() {
+    public void switchTask(boolean locked) {
         Task currentTask = Task.CURRENT_TASK.get();
         if (!this.needSwitch) {
             return;
         }
         this.trace.add(currentTask.getLiteralId());
-        currentTask.state = TState.WAITING;
+        if (!locked) {
+            currentTask.state = TState.WAITING;
+        } else {
+            currentTask.state = TState.BLOCKED;
+        }
         this.schedulerPermits.release(); // <- будим себя
         // останавливаем задачу
-        currentTask.setWaiting(); // <- ставим задачу в ожидание
+        if (!locked) {
+            currentTask.setWaiting(); // <- ставим задачу в ожидание
+        } else {
+            currentTask.setWaitingLock(); // <- ставим задачу в ожидание из-за лока
+        }
     }
 
     /** Трасса прогона: буквы потоков, выбранных во всех решениях подряд, например "AAAABB". */
@@ -166,6 +201,6 @@ public final class Scheduler {
         // todo log
         while (!cond.getAsBoolean());
         Scheduler scheduler = Task.CURRENT_SCHEDULER.get();
-        scheduler.switchTask();
+        scheduler.switchTask(false);
     }
 }

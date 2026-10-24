@@ -18,7 +18,7 @@ public final class Shared<T> {
             scheduler.log.add(logStr);
             System.out.println(logStr);
         }
-        scheduler.switchTask();
+        scheduler.switchTask(false);
         return value;
     }
 
@@ -31,7 +31,7 @@ public final class Shared<T> {
             scheduler.log.add(logStr);
             System.out.println(logStr);
         }
-        scheduler.switchTask();
+        scheduler.switchTask(false);
         // выполняем полезное действие
         value = v;
     }

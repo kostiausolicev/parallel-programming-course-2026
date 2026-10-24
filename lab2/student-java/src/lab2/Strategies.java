@@ -1,6 +1,7 @@
 package lab2;
 
 import java.util.List;
+import java.util.StringJoiner;
 
 /* Стратегии выбора следующего потока.
  * FirstAlive — этап 1, Replay — этап 2, RandomPick — этап 3, Dfs — этап 4 (ограничение bound — этап 5).
@@ -18,13 +19,32 @@ public final class Strategies {
 
     /** Проигрывает трассу: на i-м решении выбирает поток trace[i] ('A' -> 0, 'B' -> 1). */
     public static final class Replay implements Strategy {
-        public Replay(String trace) { }
+        private char[] trace;
+        private int i;
+
+        public Replay(String trace) {
+            this.trace = trace.toCharArray();
+        }
 
         /** Сбросить позицию в трассе перед прогоном. */
-        public void beginRun() { }
+        public void beginRun() {
+            this.i = 0;
+        }
 
         public int pick(List<Integer> enabled, int last) {
-            throw new UnsupportedOperationException("TODO этап 2: Replay.pick");
+            if (enabled.isEmpty()) return -1;
+            if (i >= this.trace.length) return -1;
+            return charToInt(trace[i++]);
+        }
+
+        private int charToInt(char ch) {
+            return switch (ch) {
+                case 'A' -> 1;
+                case 'B' -> 2;
+                case 'C' -> 3;
+                case 'D' -> 4;
+                default -> -1;
+            };
         }
     }
 
