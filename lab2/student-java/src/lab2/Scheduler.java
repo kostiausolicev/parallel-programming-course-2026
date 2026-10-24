@@ -77,7 +77,7 @@ public final class Scheduler {
     int counter = 1;
     List<Task> tasks = new ArrayList<>();
 
-    Semaphore schedulerPermits = new Semaphore(1);
+    Semaphore schedulerPermits = new Semaphore(0);
     List<String> trace = new ArrayList<>();
     int last = -1;
     boolean needSwitch = false;
@@ -137,6 +137,7 @@ public final class Scheduler {
         if (!this.needSwitch) {
             return;
         }
+        this.trace.add(currentTask.getLiteralId());
         currentTask.state = TState.WAITING;
         this.schedulerPermits.release(); // <- будим себя
         // останавливаем задачу
