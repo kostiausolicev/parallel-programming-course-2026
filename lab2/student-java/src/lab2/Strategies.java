@@ -1,6 +1,8 @@
 package lab2;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 /* Стратегии выбора следующего потока.
@@ -69,18 +71,60 @@ public final class Strategies {
     /** Stateless DFS по дереву выборов: каждый прогон с нуля, повторяет префикс прошлого и берёт следующий вариант.
      *  bound — максимум вытеснений (этап 5); для dfs runner передаёт Integer.MAX_VALUE. */
     public static final class Dfs implements Strategy {
-        public Dfs(int bound) { }
+        private static final class Path {
+            final List<Integer> options;
+            int selectedOption;
+
+            Path(List<Integer> options) {
+                this.options = List.copyOf(options);
+                this.selectedOption = 0;
+            }
+
+            boolean isLastOption() {
+                return selectedOption == options.size() - 1;
+            }
+        }
+
+        private int run = 0;
+        private int dept = 0;
+        private final int bound;
+        private final Map<Integer, Path> tree;
+
+        public Dfs(int bound) {
+            this.bound = bound;
+            this.tree = new HashMap<>();
+        }
 
         /** Подготовиться к новому прогону (позиция в пути, счётчик вытеснений). */
-        public void beginRun() { }
+        public void beginRun() {
+            this.dept = 0;
+        }
 
         public int pick(List<Integer> enabled, int last) {
-            throw new UnsupportedOperationException("TODO этап 4: Dfs.pick");
+            Path p = this.tree.computeIfAbsent(this.dept++, (_) -> new Path(enabled));
+            return p.options.get(p.selectedOption);
         }
 
         /** Выбрать следующий путь; false — дерево обойдено. */
         public boolean endRun() {
-            throw new UnsupportedOperationException("TODO этап 4: Dfs.endRun");
+            run++;
+
+            dept--;
+            while (dept >= 0) {
+                Path p = tree.get(dept);
+                if (p.isLastOption()) {
+                    int deptLocal = dept;
+                    while (this.tree.containsKey(deptLocal)) {
+                        tree.remove(deptLocal);
+                        deptLocal++;
+                    }
+                    dept--;
+                    continue;
+                }
+                p.selectedOption++;
+                return true;
+            }
+            return !tree.isEmpty();
         }
     }
 }
