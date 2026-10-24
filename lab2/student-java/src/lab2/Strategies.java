@@ -74,10 +74,12 @@ public final class Strategies {
         private static final class Path {
             final List<Integer> options;
             int selectedOption;
+            int bounds;
 
             Path(List<Integer> options) {
                 this.options = List.copyOf(options);
                 this.selectedOption = 0;
+                this.bounds = 0;
             }
 
             boolean isLastOption() {
@@ -86,6 +88,7 @@ public final class Strategies {
         }
 
         private int dept = 0;
+        private int preemptions = 0;
         private final int bound;
         private final Map<Integer, Path> tree;
 
@@ -97,11 +100,26 @@ public final class Strategies {
         /** Подготовиться к новому прогону (позиция в пути, счётчик вытеснений). */
         public void beginRun() {
             this.dept = 0;
+            this.preemptions = 0;
         }
 
         public int pick(List<Integer> enabled, int last) {
-            Path p = this.tree.computeIfAbsent(this.dept++, (_) -> new Path(enabled));
-            return p.options.get(p.selectedOption);
+            Path p = this.tree.get(this.dept);
+            if (p == null) {
+                List<Integer> options = enabled;
+                if (enabled.contains(last) && this.preemptions >= this.bound) {
+                    options = List.of(last);
+                }
+                p = new Path(options);
+                this.tree.put(this.dept, p);
+            }
+
+            int selected = p.options.get(p.selectedOption);
+            if (enabled.contains(last) && selected != last) {
+                this.preemptions++;
+            }
+            this.dept++;
+            return selected;
         }
 
         /** Выбрать следующий путь; false — дерево обойдено. */
