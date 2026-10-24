@@ -1,7 +1,6 @@
 package lab2;
 
 import java.util.List;
-import java.util.StringJoiner;
 
 /* Стратегии выбора следующего потока.
  * FirstAlive — этап 1, Replay — этап 2, RandomPick — этап 3, Dfs — этап 4 (ограничение bound — этап 5).
@@ -32,9 +31,15 @@ public final class Strategies {
         }
 
         public int pick(List<Integer> enabled, int last) {
-            if (enabled.isEmpty()) return -1;
-            if (i >= this.trace.length) return -1;
-            return charToInt(trace[i++]);
+            if (i >= this.trace.length) {
+                throw new IllegalArgumentException();
+            }
+            int next = charToInt(trace[i]);
+            if (!enabled.contains(next)) {
+                throw new IllegalArgumentException();
+            }
+            i++;
+            return next;
         }
 
         private int charToInt(char ch) {

@@ -7,36 +7,56 @@ public final class SchedLock {
     final String name;
     final Scheduler scheduler;
     private volatile boolean isLocked;
-    private volatile Thread holder;
+    private volatile Task holder;
 
     /** Создаётся в setup() тестовой программы; зарегистрируйте лок в планировщике s. */
     public SchedLock(Scheduler s, String name) {
         this.name = name;
         this.scheduler = s;
         this.isLocked = false;
+        this.scheduler.registerLock(this);
     }
 
     /** Пауза; если лок занят — ждать, не участвуя в выборе; затем стать владельцем. */
     public void lock() {
-        scheduler.switchTask(false);
         Task currentTask = Task.CURRENT_TASK.get();
-        // если заблокировано, то добавляем задачу в очередь и стопим ее до вызова resume
-        if (isLocked) {
-            scheduler.addWaitingTask(this.name, currentTask);
-            scheduler.switchTask(true);
-        }
+        currentTask.waitingLock = this;
         scheduler.switchTask(false);
-        holder = currentTask.thread;
+        // если заблокировано, то добавляем задачу в очередь и стопим ее до вызова resume
+        while (isLocked) {
+            scheduler.addWaitingTask(this.name, currentTask);
+            scheduler.blockCurrentTask();
+        }
+        currentTask.waitingLock = null;
+        holder = currentTask;
         isLocked = true;
+        log("lock " + name);
+        scheduler.operationDone();
     }
 
     /** Пауза; освободить лок, ждавшие потоки снова могут быть выбраны. */
     public void unlock() {
         scheduler.switchTask(false);
-        if (Thread.currentThread().equals(holder)) {
+        if (Task.CURRENT_TASK.get().equals(holder)) {
             isLocked = false;
+            holder = null;
+            log("unlock " + name);
             scheduler.releaseWaitingTask(this.name);
-            scheduler.switchTask(false);
+            scheduler.operationDone();
+        }
+    }
+
+    boolean isLocked() {
+        return isLocked;
+    }
+
+    Task getHolder() {
+        return holder;
+    }
+
+    private void log(String operation) {
+        if (scheduler.logging) {
+            scheduler.log.add(String.format("%s  %s", Task.CURRENT_TASK.get().getLiteralId(), operation));
         }
     }
 }

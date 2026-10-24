@@ -14,9 +14,10 @@ class Task {
     Runnable body;
     Semaphore semaphore;
     Thread thread;
+    SchedLock waitingLock;
 
-    static ThreadLocal<Scheduler> CURRENT_SCHEDULER = ThreadLocal.withInitial(() -> null);
-    static ThreadLocal<Task> CURRENT_TASK = ThreadLocal.withInitial(() -> null);
+    static ThreadLocal<Scheduler> CURRENT_SCHEDULER = new ThreadLocal<>();
+    static ThreadLocal<Task> CURRENT_TASK = new ThreadLocal<>();
 
     Task(Integer id, Runnable body) {
         this.id = id;
@@ -42,6 +43,9 @@ class Task {
     private void _wait() {
         try {
             this.semaphore.acquire();
+            if (CURRENT_SCHEDULER.get().aborted) {
+                throw new RunAbortedException();
+            }
             this.state = TState.RUNNING;
         } catch (InterruptedException e) {
             this.state = TState.FINISHED;
@@ -82,9 +86,15 @@ public final class Scheduler {
     }
 
     Map<String, Queue<Task>> waiters = new HashMap<>();
+    List<SchedLock> locks = new ArrayList<>();
+    volatile boolean aborted = false;
+
+    public void registerLock(SchedLock lock) {
+        locks.add(lock);
+    }
 
     public void addWaitingTask(String lockName, Task task) {
-        Queue<Task> w = Optional.ofNullable(waiters.get(lockName)).orElse(new LinkedList<>());
+        Queue<Task> w = waiters.computeIfAbsent(lockName, ignored -> new LinkedList<>());
         w.add(task);
     }
 
@@ -115,9 +125,11 @@ public final class Scheduler {
             task.thread = new Thread(() -> {
                 Task.CURRENT_SCHEDULER.set(this);
                 Task.CURRENT_TASK.set(task);
-                task.setWaiting();
                 try {
+                    task.setWaiting();
                     task.body.run();
+                } catch (RunAbortedException ignored) {
+                    // Ожидаемое завершение заблокированных потоков после deadlock.
                 } finally {
                     task.state = TState.FINISHED;
                     this.schedulerPermits.release();
@@ -133,15 +145,34 @@ public final class Scheduler {
         ) {
             this.needSwitch = false;
             // собираем enabled
-            List<Integer> enabled = tasks.stream().filter(t -> t.state == TState.WAITING).map(Task::getId).toList();
+            List<Integer> enabled = tasks.stream()
+                    .filter(t -> t.state == TState.WAITING)
+                    .filter(t -> t.waitingLock == null || !t.waitingLock.isLocked())
+                    .map(Task::getId)
+                    .toList();
             if (enabled.isEmpty()) {
-                deadlock = waiters.entrySet().stream()
-                        .flatMap(entry -> entry.getValue()
-                                .stream()
-                                .map(t -> String.format("%s: %s", t.getLiteralId(), entry.getKey()))
-                        ).reduce((s1, s2) -> s1 + ", " + s2).orElse("");
+                deadlock = locks.stream()
+                        .filter(SchedLock::isLocked)
+                        .map(lock -> String.format("%s:%s", lock.name, lock.getHolder().getLiteralId()))
+                        .reduce((left, right) -> left + ", " + right)
+                        .map(held -> "held={" + held + "}")
+                        .orElse("held={}");
+                abortTasks();
+                break;
             }
-            int next = strategy.pick(enabled, last);
+            int next;
+            try {
+                next = strategy.pick(enabled, last);
+            } catch (RuntimeException e) {
+                abortTasks();
+                joinTasks();
+                throw e;
+            }
+            if (!enabled.contains(next)) {
+                abortTasks();
+                joinTasks();
+                throw new IllegalArgumentException("strategy selected disabled task " + next);
+            }
             last = next;
 
             // todo поиск оптимизировать. лишние аллокации
@@ -156,7 +187,26 @@ public final class Scheduler {
                 throw new RuntimeException(e);
             }
         }
-        System.out.println(this.traceString());
+        joinTasks();
+    }
+
+    // запускаем все отложенные таски в случае ошибки
+    private void abortTasks() {
+        aborted = true;
+        tasks.stream()
+                .filter(t -> t.state != TState.FINISHED)
+                .forEach(Task::resumeTask);
+    }
+
+    private void joinTasks() {
+        for (Task task : tasks) {
+            try {
+                task.thread.join();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+            }
+        }
     }
 
     public void switchTask(boolean locked) {
@@ -164,7 +214,6 @@ public final class Scheduler {
         if (!this.needSwitch) {
             return;
         }
-        this.trace.add(currentTask.getLiteralId());
         if (!locked) {
             currentTask.state = TState.WAITING;
         } else {
@@ -179,6 +228,17 @@ public final class Scheduler {
         }
     }
 
+    public void blockCurrentTask() {
+        Task currentTask = Task.CURRENT_TASK.get();
+        currentTask.state = TState.BLOCKED;
+        this.schedulerPermits.release();
+        currentTask.setWaitingLock();
+    }
+
+    public void operationDone() {
+        this.needSwitch = true;
+    }
+
     /** Трасса прогона: буквы потоков, выбранных во всех решениях подряд, например "AAAABB". */
     public String traceString() {
         return trace.stream().reduce(String::concat).orElse("");
@@ -189,9 +249,8 @@ public final class Scheduler {
         Scheduler scheduler = Task.CURRENT_SCHEDULER.get();
         if (scheduler.logging) {
             Task task = Task.CURRENT_TASK.get();
-            String logStr = String.format("%s window()", task.getLiteralId());
+            String logStr = String.format("%s  window", task.getLiteralId());
             scheduler.log.add(logStr);
-            System.out.println(logStr);
         }
         scheduler.needSwitch = true;
     }
@@ -204,3 +263,5 @@ public final class Scheduler {
         scheduler.switchTask(false);
     }
 }
+
+class RunAbortedException extends RuntimeException { }

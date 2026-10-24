@@ -13,37 +13,37 @@ public final class Shared<T> {
     public T get() {
         Task currentTask = Task.CURRENT_TASK.get();
         Scheduler scheduler = Task.CURRENT_SCHEDULER.get();
-        if (scheduler.logging) {
-            String logStr = String.format("%s %s -> %s", currentTask.getLiteralId(), name, value.toString());
-            scheduler.log.add(logStr);
-            System.out.println(logStr);
-        }
         scheduler.switchTask(false);
-        return value;
+        T result = value;
+        if (scheduler.logging) {
+            String logStr = String.format("%s  %s -> %s", currentTask.getLiteralId(), name, result);
+            scheduler.log.add(logStr);
+        }
+        scheduler.operationDone();
+        return result;
     }
 
     /** Запись с паузой перед ней. */
     public void set(T v) {
         Task currentTask = Task.CURRENT_TASK.get();
         Scheduler scheduler = Task.CURRENT_SCHEDULER.get();
-        if (scheduler.logging) {
-            String logStr = String.format("%s %s = %s", currentTask.getLiteralId(), name, v.toString());
-            scheduler.log.add(logStr);
-            System.out.println(logStr);
-        }
         scheduler.switchTask(false);
-        // выполняем полезное действие
         value = v;
+        if (scheduler.logging) {
+            String logStr = String.format("%s  %s = %s", currentTask.getLiteralId(), name, v);
+            scheduler.log.add(logStr);
+        }
+        scheduler.operationDone();
     }
 
     /** То же, что get(): планировщик не моделирует порядки памяти. */
     public T getAcquire() {
-        throw new UnsupportedOperationException("TODO этап 1: Shared.getAcquire");
+        return get();
     }
 
     /** То же, что set(v). */
     public void setRelease(T v) {
-        throw new UnsupportedOperationException("TODO этап 1: Shared.setRelease");
+        set(v);
     }
 
     /** Чтение без паузы и без лога: для проверок после прогона и условий await. */
