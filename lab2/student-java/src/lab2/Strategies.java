@@ -85,7 +85,6 @@ public final class Strategies {
             }
         }
 
-        private int run = 0;
         private int dept = 0;
         private final int bound;
         private final Map<Integer, Path> tree;
@@ -107,8 +106,6 @@ public final class Strategies {
 
         /** Выбрать следующий путь; false — дерево обойдено. */
         public boolean endRun() {
-            run++;
-
             dept--;
             while (dept >= 0) {
                 Path p = tree.get(dept);
